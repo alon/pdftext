@@ -5,6 +5,8 @@
 #include <GlobalParams.h>
 #include <PDFDocEncoding.h>
 #include <DateInfo.h>
+#include <OutputDev.h>
+#include <goo/gtypes.h>
 
 GBool xml = 0;
 
@@ -127,8 +129,44 @@ char *try_cstring(GooString *g)
     if (g) {
         return g->getCString();
     }
-    return "<null>";
+    return (char*)"<null>";
 }
+
+class MyOutput : public OutputDev {
+public:
+    virtual GBool upsideDown() {
+        return gFalse;
+    }
+    virtual GBool useDrawChar() {
+        return gTrue;
+    }
+    virtual GBool interpretType3Chars() {
+        return gFalse;
+    }
+
+    virtual void beginString(GfxState *state, GooString *s)
+    {
+        printf("beginString,%s\n", s->getCString());
+    }
+    virtual void endString(GfxState *state)
+    {
+        printf("endString\n");
+    }
+    virtual void drawChar(GfxState * state, double x, double y,
+              double dx, double dy,
+              double originX, double originY,
+              CharCode code, int nBytes, Unicode * u, int uLen)
+    {
+        printf("drawChar,%f,%f,%f,%f,%f,%f,%d,%d,%d,",
+                x, y, dx, dy, originX, originY, code, nBytes, uLen);
+        for (int i = 0 ; i < uLen - 1; ++i)
+            printf("%u,", u[i]);
+        printf("%u\n", u[uLen - 1]);
+    }
+    virtual void drawString(GfxState * /*state*/, GooString * /*s*/)
+    {
+    }
+};
 
 int main(int argc, char **argv)
 {
@@ -137,16 +175,18 @@ int main(int argc, char **argv)
     GooString *docTitle, *author, *keywords, *subject, *date;
     Object info;
 
-    if (argc < 2) {
-        printf("usage: %s <filename>\n", argv[0]);
+    if (argc != 4) {
+        printf("usage: %s <filename> <startPage> <endPage>\n", argv[0]);
         return -1;
     }
     globalParams = new GlobalParams();
     filename = new GooString(argv[1]);
 
     doc = PDFDocFactory().createPDFDoc(*filename, NULL, NULL);
+#if 0
     printf("okToCopy %d\n", doc->okToCopy());
     printf("");
+#endif
     doc->getDocInfo(&info);
     if (info.isDict()) {
       docTitle = getInfoString(info.getDict(), (char*)"Title");
@@ -157,8 +197,21 @@ int main(int argc, char **argv)
       if( !date )
         date = getInfoDate(info.getDict(), (char*)"CreationDate");
     }
-    printf("%s, %s, %s, %s, %s\n",
+#if 0
+    printf("%s, %s, %s, %s, %s\n%d\n",
             try_cstring(docTitle), try_cstring(author), try_cstring(keywords),
-            try_cstring(subject), try_cstring(date));
+            try_cstring(subject), try_cstring(date),
+            doc->getNumPages());
+    for (int i = 0 ; i < doc->getNumPages(); ++i) {
+        Page *page = doc->getPage(i);
+    }
+#endif
+    MyOutput out;
+    int startPage = atoi(argv[2]);
+    int endPage = atoi(argv[3]);
+    if (endPage > doc->getNumPages()) {
+        endPage = doc->getNumPages();
+    }
+    doc->displayPages(&out, startPage, endPage, 96, 96, 0, 0, 0, 0);
     return 0;
 }
