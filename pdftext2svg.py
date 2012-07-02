@@ -4,6 +4,7 @@
 import os
 import logging
 import sys
+from mypdf2text import pdf_to_data
 
 logger = logging.Logger('test')
 logger.level = 0
@@ -19,11 +20,6 @@ svg_template = u"""<?xml version="1.0"?>
 %(contents)s
 </svg>
 """
-
-import pdb
-def pdb_assert(cond):
-    if not cond:
-        import pdb; pdb.set_trace()
 
 def quote(txt):
     def quote_char(c):
@@ -52,40 +48,6 @@ def to_svg(data, width, height, viewBox):
     log('tagged %d chars' % tagged)
     return (svg_template % dict(width=width, height=height, viewBox=viewBox,
             contents='\n'.join(nodes))).encode('utf-8')
-
-class Char(object):
-    def __init__(self, string_id, x, y, dx, dy, code_points, code):
-        self.x = x
-        self.y = y
-        self.dx = dx
-        self.dy = dy
-        self.string_id = string_id
-        self.code_points = code_points
-        self.code = code
-        self.uni = u''.join(map(unichr, code_points))
-
-def pdf_to_data(filename, start, end, maxchars):
-    data = []
-    string_id = 0
-    count = 0
-    for line in os.popen('./dump_text %s %d %d ' % (filename, start, end)).readlines():
-        line = line.strip()
-        if line.startswith('beginString,'):
-            string_id += 1
-        elif line.startswith('drawChar,'):
-            parts = line.split(',')
-            x, y, dx, dy, originX, originY = map(float, parts[1:7])
-            code, nBytes, uLen = map(int, parts[7:10])
-            u = map(int, parts[10:])
-            pdb_assert(len(u) == uLen)
-            data.append(Char(string_id=string_id, x=x, y=y, dx=dx, dy=dy, code_points=u,
-                             code=code))
-            count += uLen
-            if maxchars != -1 and count >= maxchars:
-                break
-        elif line.startswith('endString,'):
-            pass
-    return data
 
 def multitude(xs):
     s = dict()

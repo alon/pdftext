@@ -10,6 +10,8 @@
 
 GBool xml = 0;
 
+#define PAGE_BREAK "pageBreak\n"
+
 // Cribbed entirely from pdftohtml.cc, in poppler/utils
 GooString* HtmlFilter(Unicode* u, int uLen) {
   GooString *tmp = new GooString();
@@ -176,7 +178,7 @@ int main(int argc, char **argv)
     Object info;
 
     if (argc != 4) {
-        printf("usage: %s <filename> <startPage> <endPage>\n", argv[0]);
+        printf("usage: %s <filename> <startPage> [<endPage>]\n", argv[0]);
         return -1;
     }
     globalParams = new GlobalParams();
@@ -208,10 +210,17 @@ int main(int argc, char **argv)
 #endif
     MyOutput out;
     int startPage = atoi(argv[2]);
-    int endPage = atoi(argv[3]);
-    if (endPage > doc->getNumPages()) {
+    /* page number is 1 based */
+    if (startPage <= 0) {
+        startPage = 1;
+    }
+    int endPage = argc == 3 ? atoi(argv[3]) : -1;
+    if (endPage > doc->getNumPages() || endPage == -1) {
         endPage = doc->getNumPages();
     }
-    doc->displayPages(&out, startPage, endPage, 96, 96, 0, 0, 0, 0);
+    for (int i = startPage; i <= endPage; ++i) {
+        doc->displayPages(&out, i, i, 96, 96, 0, 0, 0, 0);
+        printf(PAGE_BREAK);
+    }
     return 0;
 }
